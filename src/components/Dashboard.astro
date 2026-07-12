@@ -1,0 +1,1109 @@
+---
+interface Props {
+  data: {
+    profile: {
+      login: string;
+      name: string | null;
+      avatar_url: string;
+      bio: string | null;
+      public_repos: number;
+      html_url: string;
+    };
+    languages: Record<string, number>;
+    technologies: Record<string, number>; // tech: repoCount
+    repos: Array<{
+      name: string;
+      html_url: string;
+      language: string | null;
+      private?: boolean;
+      stargazers_count: number;
+      updated_at: string;
+      languages: Record<string, number>;
+      technologies: string[];
+      error?: string;
+    }>;
+    scannedAt: number;
+  };
+}
+
+const { data } = Astro.props;
+const { profile, languages, technologies, repos, scannedAt } = data;
+
+// Sort technologies by frequency
+const sortedTechs = Object.entries(technologies).sort((a, b) => b[1] - a[1]);
+
+// Categorize technologies mapping
+const TECH_CATEGORIES: Record<string, string> = {
+  // Frontend
+  react: 'Frontend', vue: 'Frontend', angular: 'Frontend', svelte: 'Frontend', nextjs: 'Frontend', nuxtjs: 'Frontend', solidjs: 'Frontend',
+  vite: 'Frontend', webpack: 'Frontend', parcel: 'Frontend', tailwindcss: 'Frontend', bootstrap: 'Frontend', sass: 'Frontend',
+  // Backend / Lang runtimes
+  nodejs: 'Backend', express: 'Backend', nestjs: 'Backend', fastify: 'Backend', django: 'Backend', flask: 'Backend', fastapi: 'Backend',
+  laravel: 'Backend', rails: 'Backend', spring: 'Backend', dotnet: 'Backend', fiber: 'Backend', gin: 'Backend',
+  // Databases
+  postgresql: 'Databases', mysql: 'Databases', sqlite: 'Databases', mongodb: 'Databases', redis: 'Databases', mariadb: 'Databases',
+  cassandra: 'Databases', elasticsearch: 'Databases', prisma: 'Databases', mongoose: 'Databases', supabase: 'Databases', firebase: 'Databases',
+  // DevOps / Cloud
+  docker: 'DevOps', kubernetes: 'DevOps', terraform: 'DevOps', 'github-actions': 'DevOps', aws: 'DevOps', gcp: 'DevOps', vercel: 'DevOps', netlify: 'DevOps',
+  // Langs (from stack-analyser)
+  typescript: 'Languages', javascript: 'Languages', python: 'Languages', ruby: 'Languages', rust: 'Languages', go: 'Languages',
+  java: 'Languages', csharp: 'Languages', php: 'Languages', shell: 'Languages', html: 'Languages', css: 'Languages',
+};
+
+const CATEGORY_TO_ROLE: Record<string, string> = {
+  'Frontend': 'frontend',
+  'Backend': 'backend',
+  'Databases': 'infra-data',
+  'DevOps': 'infra-data',
+  'Languages': 'tooling',
+  'Tools': 'tooling',
+};
+
+// Skill Icons mapping helper
+function getSkillIconId(tech: string): string {
+  const mapping: Record<string, string> = {
+    'javascript': 'js',
+    'typescript': 'ts',
+    'python': 'py',
+    'ruby': 'ruby',
+    'rust': 'rust',
+    'go': 'go',
+    'java': 'java',
+    'csharp': 'cs',
+    'c': 'c',
+    'c++': 'cpp',
+    'php': 'php',
+    'shell': 'bash',
+    'bash': 'bash',
+    'html': 'html',
+    'css': 'css',
+    'react': 'react',
+    'vue': 'vue',
+    'angular': 'angular',
+    'svelte': 'svelte',
+    'nextjs': 'nextjs',
+    'nuxtjs': 'nuxtjs',
+    'tailwindcss': 'tailwind',
+    'bootstrap': 'bootstrap',
+    'sass': 'sass',
+    'nodejs': 'nodejs',
+    'express': 'express',
+    'nestjs': 'nestjs',
+    'fastify': 'fastify',
+    'django': 'django',
+    'flask': 'flask',
+    'fastapi': 'fastapi',
+    'laravel': 'laravel',
+    'rails': 'rails',
+    'spring': 'spring',
+    'dotnet': 'dotnet',
+    'postgresql': 'postgres',
+    'mysql': 'mysql',
+    'sqlite': 'sqlite',
+    'mongodb': 'mongodb',
+    'redis': 'redis',
+    'supabase': 'supabase',
+    'firebase': 'firebase',
+    'prisma': 'prisma',
+    'docker': 'docker',
+    'kubernetes': 'kubernetes',
+    'terraform': 'terraform',
+    'github-actions': 'githubactions',
+    'aws': 'aws',
+    'gcp': 'gcp',
+    'vercel': 'vercel',
+    'netlify': 'netlify',
+    'git': 'git',
+    'github': 'github',
+    'npm': 'npm',
+    'pnpm': 'pnpm',
+    'yarn': 'yarn',
+    'bun': 'bun',
+    'vite': 'vite',
+    'webpack': 'webpack',
+    'babel': 'babel',
+    'eslint': 'eslint',
+    'prettier': 'prettier',
+    'jsx': 'react',
+    'vitest': 'vitest',
+    'jest': 'jest',
+    'playwright': 'playwright',
+  };
+  const normalized = tech.toLowerCase().replace(/[^a-z0-9+-]/g, '');
+  return mapping[normalized] || normalized;
+}
+
+// Group technologies by role
+const roles: Record<string, Array<[string, number]>> = {
+  'frontend': [],
+  'backend': [],
+  'infra-data': [],
+  'tooling': [],
+};
+
+for (const [tech, count] of sortedTechs) {
+  const category = TECH_CATEGORIES[tech.toLowerCase()] || 'Tools';
+  const role = CATEGORY_TO_ROLE[category] || 'tooling';
+  roles[role].push([tech, count]);
+}
+
+// Top language detection
+const totalLangBytes = Object.values(languages).reduce((a, b) => a + b, 0);
+const sortedLangs = Object.entries(languages).sort((a, b) => b[1] - a[1]);
+const topLanguage = sortedLangs.length > 0 ? sortedLangs[0][0] : 'None';
+const topLanguageBytes = sortedLangs.length > 0 ? sortedLangs[0][1] : 0;
+const topLanguagePct = totalLangBytes > 0 ? ((topLanguageBytes / totalLangBytes) * 100).toFixed(1) : '0';
+
+// Filter out pure programming languages for top frameworks
+const pureLanguages = ['typescript', 'javascript', 'python', 'ruby', 'rust', 'go', 'java', 'csharp', 'php', 'shell', 'bash', 'html', 'css', 'c', 'c++'];
+const topFrameworks = sortedTechs
+  .filter(([tech]) => !pureLanguages.includes(tech.toLowerCase()))
+  .slice(0, 3);
+const topFrameworksToRender = topFrameworks.length >= 3 ? topFrameworks : sortedTechs.slice(0, 3);
+
+// Category helpers
+function getTechCategory(tech: string): string {
+  return TECH_CATEGORIES[tech.toLowerCase()] || 'Tools';
+}
+
+function getTechRole(tech: string): string {
+  const category = getTechCategory(tech);
+  return CATEGORY_TO_ROLE[category] || 'tooling';
+}
+
+// Markdown Exporter Summary
+const privateCount = repos.filter(r => r.private).length;
+const publicCount = repos.length - privateCount;
+const repoTypeDetails = privateCount > 0 ? `${repos.length} (${privateCount} private, ${publicCount} public)` : `${repos.length} public`;
+
+const markdownSummary = `### GitHub StackScan: ${profile.name || profile.login}
+**Total Repos Scanned:** ${repoTypeDetails}
+
+#### Top Technologies
+${sortedTechs.slice(0, 8).map(([tech, count]) => `- **${tech}** (used in ${count} repo${count > 1 ? 's' : ''})`).join('\n')}
+
+*Generated by [StackScan](https://github.com/Srivarsan/stackscan)*`;
+---
+
+<div class="dashboard animate-fade-in">
+  <!-- 1. Header Row -->
+  <header class="dashboard-header glass">
+    <div class="header-profile">
+      {profile.avatar_url ? (
+        <img src={profile.avatar_url} alt={profile.login} class="profile-avatar" />
+      ) : (
+        <div class="profile-avatar initials">
+          {profile.name ? profile.name.split(' ').map(n => n[0]).join('').substring(0, 2) : profile.login.substring(0, 2)}
+        </div>
+      )}
+      <div class="profile-details">
+        <h2>{profile.name || profile.login}</h2>
+        <div class="profile-meta-row">
+          <a href={`https://github.com/${profile.login}`} target="_blank" rel="noreferrer" class="github-profile-link">
+            @{profile.login}
+            <i class="ti ti-external-link"></i>
+          </a>
+          <span class="meta-dot"></span>
+          <span>{repos.length} repositories scanned {privateCount > 0 ? `(${privateCount} private, ${publicCount} public)` : ''}</span>
+          <span class="meta-dot"></span>
+          <span>Last scanned {new Date(scannedAt).toLocaleDateString()}</span>
+        </div>
+      </div>
+    </div>
+    
+    <div class="header-actions">
+      <button id="btn-copy-md" class="btn btn-secondary" data-md={markdownSummary}>
+        <i class="ti ti-copy"></i>
+        <span>Copy markdown</span>
+      </button>
+      <a href={`/api/scan?username=${profile.login}`} download={`${profile.login}-stack.json`} class="btn btn-secondary" id="btn-export-json">
+        <i class="ti ti-download"></i>
+        <span>Export json</span>
+      </a>
+      <button id="btn-rescan" class="btn btn-primary">
+        <i class="ti ti-refresh"></i>
+        <span>Rescan</span>
+      </button>
+    </div>
+  </header>
+
+  <!-- 2. Bento Grid -->
+  <div class="bento-grid">
+    <!-- Wide Tile 1: Top Language -->
+    <div class="bento-card bento-wide glass">
+      <span class="bento-label">Top language</span>
+      <div class="bento-value-group">
+        <span class="bento-main-value">{topLanguage}</span>
+        {topLanguageBytes > 0 && <span class="bento-sub-value">{topLanguagePct}% of code volume</span>}
+      </div>
+    </div>
+
+    <!-- Wide Tile 2: Total Technologies Found -->
+    <div class="bento-card bento-wide glass">
+      <span class="bento-label">Total technologies found</span>
+      <div class="bento-value-group">
+        <span class="bento-main-value">{sortedTechs.length}</span>
+        <span class="bento-sub-value">across all repositories</span>
+      </div>
+    </div>
+
+    <!-- Top 3 Frameworks (3 Narrow Tiles) -->
+    {topFrameworksToRender.map(([tech, count]) => {
+      const role = getTechRole(tech);
+      return (
+        <div class={`bento-card bento-narrow glass border-role-${role}`}>
+          <div class="hero-header">
+            <img 
+              src={`https://skillicons.dev/icons?i=${getSkillIconId(tech)}&theme=dark`} 
+              alt={tech} 
+              class="hero-logo" 
+              loading="lazy"
+              onerror="this.style.display='none'"
+            />
+            <span class="hero-count">{count} {count === 1 ? 'repo' : 'repos'}</span>
+          </div>
+          <div class="hero-details">
+            <span class="hero-name">{tech}</span>
+            <span class="hero-role-label">{getTechCategory(tech)}</span>
+          </div>
+        </div>
+      );
+    })}
+  </div>
+
+
+  <!-- 3. Pill Cloud Card -->
+  <section class="pill-cloud-section glass">
+    <h3>Technology stack</h3>
+    
+    <div class="roles-container">
+      {Object.entries(roles).map(([role, items]) => items.length > 0 && (
+        <div class="role-group">
+          <span class="role-title">{role}</span>
+          <div class="role-pills">
+            {items.map(([tech, count]) => (
+              <button 
+                class="tech-pill" 
+                data-tech={tech}
+                data-role={role}
+                title={`Used in ${count} repositories`}
+              >
+                <img 
+                  src={`https://skillicons.dev/icons?i=${getSkillIconId(tech)}&theme=dark`} 
+                  alt={tech} 
+                  class="pill-logo"
+                  loading="lazy"
+                  onerror="this.style.display='none'"
+                />
+                <span class="tech-name">{tech}</span>
+                <span class="tech-count">{count}</span>
+              </button>
+            ))}
+          </div>
+        </div>
+      ))}
+    </div>
+  </section>
+
+  <!-- 4. Filtered Repo List Card -->
+  <section class="repos-section glass">
+    <div class="repos-card-header">
+      <div class="repos-title-group">
+        <h3>Repositories</h3>
+        <div class="filter-indicator" id="filter-indicator" style="display: none;">
+          <span>filtered by <span id="filter-name">react</span></span>
+          <button id="btn-clear-filter" aria-label="Clear Filter">
+            <i class="ti ti-x"></i>
+          </button>
+        </div>
+      </div>
+      <div class="repos-search-wrapper">
+        <i class="ti ti-search search-icon"></i>
+        <input type="text" id="repo-search" placeholder="Search repositories..." class="repo-search-input" />
+      </div>
+    </div>
+
+    <!-- Flex Rows Repo List (No Tables!) -->
+    <div class="repos-list" id="repos-list-container">
+      <!-- Header row mock (no table, purely flex-row) -->
+      <div class="repos-list-row list-header">
+        <span class="col-name" data-sort="name">name <i class="ti ti-arrows-sort"></i></span>
+        <span class="col-lang" data-sort="lang">language <i class="ti ti-arrows-sort"></i></span>
+        <span class="col-techs">detected technologies</span>
+        <span class="col-stars" data-sort="stars">stars <i class="ti ti-arrows-sort"></i></span>
+        <span class="col-updated" data-sort="updated">updated <i class="ti ti-arrows-sort"></i></span>
+      </div>
+
+      <div id="repos-rows-body">
+        {repos.map((repo) => (
+          <div class="repos-list-row repo-item-row" data-name={repo.name.toLowerCase()} data-techs={repo.technologies.join(',').toLowerCase()}>
+            <span class="col-name">
+              <a href={repo.html_url} target="_blank" rel="noreferrer" class="repo-link">
+                {repo.name}
+                <i class="ti ti-external-link"></i>
+              </a>
+            </span>
+            <span class="col-lang">
+              {repo.language ? (
+                <span class="repo-lang-badge">
+                  {repo.language}
+                </span>
+              ) : (
+                <span class="text-muted">—</span>
+              )}
+            </span>
+            <span class="col-techs">
+              <div class="repo-techs-container">
+                {repo.technologies.slice(0, 4).map(tech => (
+                  <span class={`repo-tech-pill role-pill-${getTechRole(tech)}`}>
+                    <img src={`https://skillicons.dev/icons?i=${getSkillIconId(tech)}&theme=dark`} alt={tech} class="repo-pill-logo" loading="lazy" onerror="this.style.display='none'" />
+                    {tech}
+                  </span>
+                ))}
+                {repo.technologies.length > 4 && (
+                  <span class="repo-tech-pill count" title={repo.technologies.slice(4).join(', ')}>
+                    +{repo.technologies.length - 4}
+                  </span>
+                )}
+                {repo.technologies.length === 0 && <span class="text-muted">—</span>}
+              </div>
+            </span>
+            <span class="col-stars">
+              <span class="stars-val"><i class="ti ti-star"></i> {repo.stargazers_count}</span>
+            </span>
+            <span class="col-updated" data-time={repo.updated_at}>
+              {new Date(repo.updated_at).toLocaleDateString()}
+            </span>
+          </div>
+        ))}
+      </div>
+    </div>
+  </section>
+</div>
+
+<script>
+  import { gsap } from 'gsap';
+  import { animate, stagger } from 'motion';
+
+  // Load animations
+  window.addEventListener('DOMContentLoaded', () => {
+    // Header fade and drop
+    gsap.from('.dashboard-header', {
+      opacity: 0,
+      y: -20,
+      duration: 0.8,
+      ease: 'power3.out'
+    });
+
+    // Bento cards springy stagger
+    gsap.from('.bento-card', {
+      opacity: 0,
+      y: 30,
+      duration: 0.9,
+      stagger: 0.08,
+      ease: 'back.out(1.15)',
+      delay: 0.1
+    });
+
+
+    // Pill cloud stagger scale
+    animate('.tech-pill', {
+      opacity: [0, 1],
+      scale: [0.85, 1],
+      y: [8, 0]
+    }, {
+      delay: stagger(0.012, { startDelay: 0.25 }),
+      duration: 0.45
+    });
+
+    // Repos list row stagger fade
+    animate('.repo-item-row', {
+      opacity: [0, 1],
+      y: [8, 0]
+    }, {
+      delay: stagger(0.02, { startDelay: 0.35 }),
+      duration: 0.4
+    });
+  });
+
+  // Copy Markdown
+  const copyBtn = document.getElementById('btn-copy-md');
+  copyBtn?.addEventListener('click', () => {
+    const md = copyBtn.getAttribute('data-md');
+    if (md) {
+      navigator.clipboard.writeText(md).then(() => {
+        const originalText = copyBtn.innerHTML;
+        copyBtn.innerHTML = `<i class="ti ti-check"></i><span>Copied!</span>`;
+        setTimeout(() => {
+          copyBtn.innerHTML = originalText;
+        }, 2000);
+      });
+    }
+  });
+
+  // Rescan
+  const rescanBtn = document.getElementById('btn-rescan');
+  rescanBtn?.addEventListener('click', () => {
+    const url = new URL(window.location.href);
+    url.searchParams.set('refresh', 'true');
+    window.location.href = url.toString();
+  });
+
+  // Export JSON Action
+  const exportJsonBtn = document.getElementById('btn-export-json') as HTMLAnchorElement;
+  if (exportJsonBtn) {
+    const url = new URL(window.location.href);
+    exportJsonBtn.href = `/api/scan?username=${url.pathname.substring(1)}${url.search}`;
+  }
+
+  // Interactive filtering / search
+  let activeTechFilter: string | null = null;
+  const searchInput = document.getElementById('repo-search') as HTMLInputElement;
+  const rows = document.querySelectorAll('.repo-item-row') as NodeListOf<HTMLDivElement>;
+  const filterIndicator = document.getElementById('filter-indicator');
+  const filterName = document.getElementById('filter-name');
+  const clearFilterBtn = document.getElementById('btn-clear-filter');
+
+  function updateTableFilters() {
+    const query = searchInput?.value.trim().toLowerCase() || '';
+    let visibleIndex = 0;
+
+    rows.forEach(row => {
+      const name = row.getAttribute('data-name') || '';
+      const techs = row.getAttribute('data-techs') || '';
+
+      const matchQuery = name.includes(query) || techs.includes(query);
+      const matchTechFilter = !activeTechFilter || techs.split(',').includes(activeTechFilter.toLowerCase());
+
+      if (matchQuery && matchTechFilter) {
+        if (row.style.display !== 'flex') {
+          row.style.display = 'flex';
+          animate(row, {
+            opacity: [0, 1],
+            y: [8, 0]
+          }, {
+            duration: 0.3,
+            delay: visibleIndex * 0.015
+          });
+          visibleIndex++;
+        }
+      } else {
+        row.style.display = 'none';
+      }
+    });
+
+    if (activeTechFilter) {
+      if (filterIndicator) filterIndicator.style.display = 'inline-flex';
+      if (filterName) filterName.textContent = activeTechFilter.toLowerCase();
+    } else {
+      if (filterIndicator) filterIndicator.style.display = 'none';
+    }
+  }
+
+  searchInput?.addEventListener('input', updateTableFilters);
+
+  // Filter click actions
+  document.querySelectorAll('.tech-pill').forEach(pill => {
+    pill.addEventListener('click', () => {
+      const tech = pill.getAttribute('data-tech');
+      if (!tech) return;
+
+      if (activeTechFilter === tech) {
+        activeTechFilter = null;
+        pill.classList.remove('active');
+      } else {
+        document.querySelectorAll('.tech-pill').forEach(p => p.classList.remove('active'));
+        activeTechFilter = tech;
+        pill.classList.add('active');
+      }
+      updateTableFilters();
+    });
+  });
+
+  // Clear Filter Action
+  clearFilterBtn?.addEventListener('click', () => {
+    activeTechFilter = null;
+    document.querySelectorAll('.tech-pill').forEach(p => p.classList.remove('active'));
+    updateTableFilters();
+  });
+
+  // Sorting list items
+  let currentSortCol: string | null = null;
+  let sortAsc = true;
+  const listBody = document.getElementById('repos-rows-body');
+
+  document.querySelectorAll('.list-header span[data-sort]').forEach(th => {
+    th.addEventListener('click', () => {
+      const col = th.getAttribute('data-sort');
+      if (!col || !listBody) return;
+
+      if (currentSortCol === col) {
+        sortAsc = !sortAsc;
+      } else {
+        currentSortCol = col;
+        sortAsc = true;
+      }
+
+      // Visual indicators update
+      document.querySelectorAll('.list-header span[data-sort] i').forEach(icon => {
+        icon.className = 'ti ti-arrows-sort';
+      });
+      const currentIcon = th.querySelector('i');
+      if (currentIcon) {
+        currentIcon.className = sortAsc ? 'ti ti-sort-ascending' : 'ti ti-sort-descending';
+      }
+
+      const rowsArray = Array.from(rows);
+
+      rowsArray.sort((a, b) => {
+        let valA = '';
+        let valB = '';
+
+        if (col === 'name') {
+          valA = a.getAttribute('data-name') || '';
+          valB = b.getAttribute('data-name') || '';
+          return sortAsc ? valA.localeCompare(valB) : valB.localeCompare(valA);
+        } else if (col === 'lang') {
+          valA = a.querySelector('.col-lang')?.textContent?.trim().toLowerCase() || '';
+          valB = b.querySelector('.col-lang')?.textContent?.trim().toLowerCase() || '';
+          return sortAsc ? valA.localeCompare(valB) : valB.localeCompare(valA);
+        } else if (col === 'stars') {
+          const numA = parseInt(a.querySelector('.col-stars')?.textContent?.replace(/[^0-9]/g, '') || '0', 10);
+          const numB = parseInt(b.querySelector('.col-stars')?.textContent?.replace(/[^0-9]/g, '') || '0', 10);
+          return sortAsc ? numA - numB : numB - numA;
+        } else if (col === 'updated') {
+          const timeA = new Date(a.querySelector('.col-updated')?.getAttribute('data-time') || '0').getTime();
+          const timeB = new Date(b.querySelector('.col-updated')?.getAttribute('data-time') || '0').getTime();
+          return sortAsc ? timeA - timeB : timeB - timeA;
+        }
+        return 0;
+      });
+
+      rowsArray.forEach(row => listBody.appendChild(row));
+    });
+
+  });
+</script>
+
+<style>
+  .dashboard {
+    display: flex;
+    flex-direction: column;
+    gap: 40px;
+    width: 100%;
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 40px 24px;
+  }
+
+  /* 1. Header Styling */
+  .dashboard-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 24px;
+    gap: 20px;
+    flex-wrap: wrap;
+  }
+
+  .header-profile {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+  }
+
+  .profile-avatar {
+    width: 56px;
+    height: 56px;
+    border-radius: 50%;
+    border: 1px solid var(--panel-border);
+    object-fit: cover;
+  }
+
+  .profile-avatar.initials {
+    background: var(--panel-border);
+    color: var(--text-primary);
+    font-size: 1.25rem;
+    font-weight: 500;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    text-transform: uppercase;
+  }
+
+  .profile-details h2 {
+    font-size: 1.35rem;
+    font-weight: 500;
+    color: var(--text-primary);
+  }
+
+  .profile-meta-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-size: 0.85rem;
+    color: var(--text-secondary);
+    margin-top: 4px;
+    flex-wrap: wrap;
+  }
+
+  .github-profile-link {
+    color: var(--color-primary);
+    text-decoration: none;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+  }
+
+  .github-profile-link:hover {
+    text-decoration: underline;
+  }
+
+  .meta-dot {
+    width: 3px;
+    height: 3px;
+    border-radius: 50%;
+    background: var(--text-muted);
+  }
+
+  .header-actions {
+    display: flex;
+    gap: 10px;
+  }
+
+  /* Buttons */
+  .btn {
+    padding: 8px 16px;
+    border-radius: 9999px;
+    font-weight: 500;
+    font-size: 0.85rem;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    text-decoration: none;
+    transition: all 0.2s ease;
+  }
+
+  .btn-primary {
+    background: var(--color-primary);
+    color: #121218;
+    border: 1px solid var(--color-primary);
+  }
+
+  .btn-primary:hover {
+    background: var(--color-accent);
+    border-color: var(--color-accent);
+  }
+
+  .btn-secondary {
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid var(--panel-border);
+    color: var(--text-primary);
+  }
+
+  .btn-secondary:hover {
+    background: rgba(255, 255, 255, 0.06);
+    border-color: var(--text-secondary);
+  }
+
+  /* 2. Bento Grid */
+  .bento-grid {
+    display: grid;
+    grid-template-columns: repeat(6, 1fr);
+    gap: 20px;
+  }
+
+  .bento-card {
+    padding: 24px;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    gap: 20px;
+  }
+
+  .bento-wide {
+    grid-column: span 3;
+  }
+
+  .bento-narrow {
+    grid-column: span 2;
+  }
+
+  .bento-label {
+    font-size: 0.85rem;
+    color: var(--text-secondary);
+  }
+
+  .bento-value-group {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+
+  .bento-main-value {
+    font-size: 2.2rem;
+    font-weight: 500;
+    color: var(--text-primary);
+    line-height: 1;
+  }
+
+  .bento-sub-value {
+    font-size: 0.85rem;
+    color: var(--text-muted);
+  }
+
+  /* Hero Frameworks specific colors */
+  .border-role-frontend { border-color: var(--cat-frontend); }
+  .border-role-backend { border-color: var(--cat-backend); }
+  .border-role-infra-data { border-color: var(--cat-infra-data); }
+  .border-role-tooling { border-color: var(--cat-tooling); }
+
+  .hero-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+
+  .hero-logo {
+    width: 32px;
+    height: 32px;
+  }
+
+  .hero-count {
+    font-size: 0.8rem;
+    color: var(--text-secondary);
+    background: rgba(255, 255, 255, 0.04);
+    border: 1px solid var(--panel-border);
+    padding: 2px 8px;
+    border-radius: 9999px;
+  }
+
+  .hero-details {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+
+  .hero-name {
+    font-size: 1.15rem;
+    font-weight: 500;
+    color: var(--text-primary);
+  }
+
+  .hero-role-label {
+    font-size: 0.8rem;
+    color: var(--text-muted);
+  }
+
+  /* 3. Pill Cloud Card */
+  .pill-cloud-section {
+    padding: 32px;
+  }
+
+  .pill-cloud-section h3, .repos-section h3 {
+    font-size: 1.1rem;
+    font-weight: 500;
+    color: var(--text-primary);
+    margin-bottom: 20px;
+  }
+
+  .roles-container {
+    display: flex;
+    flex-direction: column;
+    gap: 24px;
+  }
+
+  .role-group {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  .role-title {
+    font-size: 0.75rem;
+    color: var(--text-muted);
+    text-transform: lowercase;
+    letter-spacing: 0.05em;
+  }
+
+  .role-pills {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+
+  /* Pill Icons and Styles */
+  .pill-logo {
+    width: 14px;
+    height: 14px;
+  }
+
+  .tech-pill[data-role="frontend"] { border-color: rgba(59, 130, 246, 0.15); color: var(--cat-frontend); background: rgba(59, 130, 246, 0.04); }
+  .tech-pill[data-role="frontend"]:hover, .tech-pill[data-role="frontend"].active { background: rgba(59, 130, 246, 0.1); border-color: var(--cat-frontend); }
+  
+  .tech-pill[data-role="backend"] { border-color: rgba(16, 185, 129, 0.15); color: var(--cat-backend); background: rgba(16, 185, 129, 0.04); }
+  .tech-pill[data-role="backend"]:hover, .tech-pill[data-role="backend"].active { background: rgba(16, 185, 129, 0.1); border-color: var(--cat-backend); }
+
+  .tech-pill[data-role="infra-data"] { border-color: rgba(249, 115, 22, 0.15); color: var(--cat-infra-data); background: rgba(249, 115, 22, 0.04); }
+  .tech-pill[data-role="infra-data"]:hover, .tech-pill[data-role="infra-data"].active { background: rgba(249, 115, 22, 0.1); border-color: var(--cat-infra-data); }
+
+  .tech-pill[data-role="tooling"] { border-color: var(--panel-border); color: var(--text-secondary); background: rgba(255, 255, 255, 0.02); }
+  .tech-pill[data-role="tooling"]:hover, .tech-pill[data-role="tooling"].active { background: rgba(255, 255, 255, 0.06); border-color: var(--text-muted); }
+
+  .tech-pill .tech-count {
+    background: rgba(0, 0, 0, 0.15);
+    padding: 1px 6px;
+    border-radius: 9999px;
+    font-size: 0.75rem;
+    color: var(--text-secondary);
+  }
+
+
+  /* 4. Filtered Repositories Section */
+  .repos-section {
+    padding: 32px;
+  }
+
+  .repos-card-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 20px;
+    flex-wrap: wrap;
+    gap: 16px;
+  }
+
+  .repos-title-group {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+  }
+
+  .repos-title-group h3 {
+    margin-bottom: 0;
+  }
+
+  .filter-indicator {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 0.8rem;
+    background: rgba(255, 255, 255, 0.03);
+    color: var(--color-primary);
+    border: 1px solid var(--panel-border);
+    padding: 3px 10px;
+    border-radius: 9999px;
+  }
+
+  .filter-indicator button {
+    background: none;
+    border: none;
+    color: var(--text-muted);
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    transition: color 0.2s;
+  }
+
+  .filter-indicator button:hover {
+    color: var(--text-primary);
+  }
+
+  .repos-search-wrapper {
+    position: relative;
+    display: flex;
+    align-items: center;
+  }
+
+  .repos-search-wrapper .search-icon {
+    position: absolute;
+    left: 12px;
+    color: var(--text-muted);
+    pointer-events: none;
+  }
+
+  .repo-search-input {
+    background: rgba(0, 0, 0, 0.25);
+    border: 1px solid var(--panel-border);
+    color: var(--text-primary);
+    padding: 8px 12px 8px 36px;
+    border-radius: 9999px;
+    font-size: 0.85rem;
+    width: 240px;
+    transition: border-color 0.2s;
+  }
+
+  .repo-search-input:focus {
+    border-color: var(--color-primary);
+  }
+
+  /* Flex List Layout instead of tables */
+  .repos-list {
+    display: flex;
+    flex-direction: column;
+  }
+
+  .repos-list-row {
+    display: grid;
+    grid-template-columns: 2.2fr 1fr 4fr 1fr 1.2fr;
+    padding: 14px 16px;
+    align-items: center;
+    gap: 16px;
+    font-size: 0.9rem;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.03);
+  }
+
+  .repos-list-row.list-header {
+    border-bottom: 1px solid var(--panel-border);
+    color: var(--text-muted);
+    font-size: 0.8rem;
+    font-weight: 500;
+  }
+
+  .repos-list-row.list-header span[data-sort] {
+    cursor: pointer;
+    user-select: none;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    transition: color 0.2s;
+  }
+
+  .repos-list-row.list-header span[data-sort]:hover {
+    color: var(--text-primary);
+  }
+
+  .repos-list-row.list-header span[data-sort] i {
+    font-size: 0.75rem;
+  }
+
+  .repo-item-row:hover {
+    background: rgba(255, 255, 255, 0.01);
+  }
+
+  .repo-link {
+    font-weight: 500;
+    color: var(--text-primary);
+    text-decoration: none;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    word-break: break-all;
+  }
+
+  .repo-link:hover {
+    color: var(--color-primary);
+    text-decoration: underline;
+  }
+
+  .repo-link i {
+    font-size: 0.8rem;
+    opacity: 0.6;
+  }
+
+  .repo-lang-badge {
+    display: inline-block;
+    font-size: 0.8rem;
+    color: var(--text-secondary);
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid var(--panel-border);
+    padding: 2px 8px;
+    border-radius: 9999px;
+  }
+
+  .repo-techs-container {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+  }
+
+  .repo-tech-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    background: rgba(255, 255, 255, 0.02);
+    border: 1px solid var(--panel-border);
+    padding: 2px 8px;
+    border-radius: 9999px;
+    font-size: 0.75rem;
+    color: var(--text-secondary);
+  }
+
+  .repo-pill-logo {
+    width: 10px;
+    height: 10px;
+  }
+
+  .repo-tech-pill.role-pill-frontend { border-color: rgba(59, 130, 246, 0.15); color: var(--cat-frontend); background: rgba(59, 130, 246, 0.02); }
+  .repo-tech-pill.role-pill-backend { border-color: rgba(16, 185, 129, 0.15); color: var(--cat-backend); background: rgba(16, 185, 129, 0.02); }
+  .repo-tech-pill.role-pill-infra-data { border-color: rgba(249, 115, 22, 0.15); color: var(--cat-infra-data); background: rgba(249, 115, 22, 0.02); }
+  .repo-tech-pill.role-pill-tooling { border-color: var(--panel-border); color: var(--text-secondary); }
+
+  .repo-tech-pill.count {
+    cursor: help;
+  }
+
+  .stars-val {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    color: var(--text-secondary);
+  }
+
+  .stars-val i {
+    color: #eab308;
+  }
+
+  .col-updated {
+    color: var(--text-muted);
+  }
+
+  /* Responsive Design collapsing grid to single col */
+  @media (max-width: 900px) {
+    .bento-grid {
+      grid-template-columns: 1fr;
+    }
+
+    .bento-wide, .bento-narrow {
+      grid-column: span 1;
+    }
+
+    .repos-list-row {
+      grid-template-columns: 1fr;
+      gap: 12px;
+      padding: 16px;
+    }
+
+    .repos-list-row.list-header {
+      display: none; /* Hide header row on mobile since it collapses to card style */
+    }
+
+    .col-stars, .col-updated, .col-lang {
+      display: flex;
+      align-items: center;
+    }
+
+    .col-lang::before { content: "Language: "; font-size: 0.75rem; color: var(--text-muted); width: 80px; }
+    .col-stars::before { content: "Stars: "; font-size: 0.75rem; color: var(--text-muted); width: 80px; }
+    .col-updated::before { content: "Updated: "; font-size: 0.75rem; color: var(--text-muted); width: 80px; }
+  }
+
+  @media (max-width: 600px) {
+    .dashboard-header {
+      flex-direction: column;
+      align-items: flex-start;
+    }
+
+    .header-actions {
+      width: 100%;
+      flex-direction: column;
+    }
+
+    .header-actions .btn {
+      width: 100%;
+      justify-content: center;
+    }
+  }
+</style>

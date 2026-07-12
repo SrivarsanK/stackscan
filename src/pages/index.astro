@@ -1,11 +1,623 @@
 ---
-import Welcome from '../components/Welcome.astro';
 import Layout from '../layouts/Layout.astro';
 
-// Welcome to Astro! Wondering what to do next? Check out the Astro documentation at https://docs.astro.build
-// Don't want to use any of this? Delete everything in this file, the `assets`, `components`, and `layouts` directories, and start fresh.
+const githubUserCookie = Astro.cookies.get('github_user')?.value;
+let user = null;
+if (githubUserCookie) {
+	try {
+		user = JSON.parse(githubUserCookie);
+	} catch (e) {}
+}
 ---
 
-<Layout>
-	<Welcome />
+<Layout title="StackScan — Discover Developer Tech Stacks">
+	<main class="container">
+		<div class="hero-section">
+			<!-- Targeting crosshair box framing the logo -->
+			<div class="target-frame animate-fade-in">
+				<div class="frame-corner top-left"></div>
+				<div class="frame-corner top-right"></div>
+				<div class="frame-corner bottom-left"></div>
+				<div class="frame-corner bottom-right"></div>
+
+				<div class="logo-area">
+					<svg class="radar-logo-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+						<circle cx="12" cy="12" r="10" stroke-dasharray="3 3" opacity="0.3"></circle>
+						<circle cx="12" cy="12" r="6" stroke-dasharray="2 2" opacity="0.5"></circle>
+						<circle cx="12" cy="12" r="2" fill="currentColor"></circle>
+						<path d="M12 2v10l7 4" class="radar-sweep-line"></path>
+					</svg>
+					<h1 class="logo-text">
+						<span class="wordmark-stack">STACK</span><span class="wordmark-divider">//</span><span class="wordmark-scan">SCAN</span>
+					</h1>
+				</div>
+			</div>
+			
+			<p class="subtitle animate-fade-in" style="animation-delay: 0.05s;">
+				Reveal the frameworks, libraries, and languages used across any public GitHub profile in seconds.
+			</p>
+
+			<div class="card glass animate-fade-in" style="animation-delay: 0.1s;">
+				<form id="scan-form" class="scan-form-box">
+					<input 
+						type="text" 
+						id="username" 
+						placeholder="Enter GitHub username (e.g., octocat)" 
+						required 
+						autocomplete="off"
+						spellcheck="false"
+					/>
+					<button type="submit" aria-label="Scan profile">
+						<i class="ti ti-arrow-right"></i>
+					</button>
+				</form>
+
+				<details class="options-details">
+					<summary class="options-summary">
+						<span>Advanced options</span>
+						<i class="ti ti-chevron-down chevron"></i>
+					</summary>
+					<div class="options-grid">
+						{user && (
+							<label class="toggle-label">
+								<input type="checkbox" id="include-private" data-has-private={user.hasPrivateScope ? "true" : "false"} />
+								<span class="toggle-custom"></span>
+								<span>Include private repositories</span>
+							</label>
+						)}
+						<label class="toggle-label">
+							<input type="checkbox" id="include-forks" />
+							<span class="toggle-custom"></span>
+							<span>Include forked repositories</span>
+						</label>
+						<label class="toggle-label">
+							<input type="checkbox" id="include-archived" />
+							<span class="toggle-custom"></span>
+							<span>Include archived repositories</span>
+						</label>
+						<div class="limit-wrapper">
+							<label for="max-repos">Max repositories to scan:</label>
+							<input type="number" id="max-repos" value="100" min="1" max="500" class="limit-input" />
+						</div>
+					</div>
+				</details>
+			</div>
+
+			{user && (
+				<div class="user-cta animate-fade-in" style="animation-delay: 0.15s;">
+					<button id="btn-scan-mine" class="btn btn-primary btn-large-glowing" data-username={user.login}>
+						<i class="ti ti-user"></i>
+						<span>Scan my profile (@{user.login})</span>
+					</button>
+				</div>
+			)}
+
+			<div class="quick-links animate-fade-in" style="animation-delay: 0.2s;">
+				<span class="quick-title">Popular profiles:</span>
+				<div class="pills-container">
+					<a href="/yyx990803" class="quick-pill">yyx990803 (Vue)</a>
+					<a href="/gaearon" class="quick-pill">gaearon (React)</a>
+					<a href="/ry" class="quick-pill">ry (Deno/Node)</a>
+					<a href="/torvalds" class="quick-pill">torvalds (Linux)</a>
+				</div>
+			</div>
+		</div>
+	</main>
 </Layout>
+
+<script>
+	import { gsap } from 'gsap';
+	import { animate, stagger } from 'motion';
+
+	// Animation logic on load
+	window.addEventListener('DOMContentLoaded', () => {
+		// Animate targeting frame panel boot-up
+		gsap.from('.target-frame', {
+			scaleX: 0.8,
+			opacity: 0,
+			duration: 0.9,
+			ease: 'power3.out'
+		});
+		
+		gsap.from('.frame-corner', {
+			scale: 0,
+			opacity: 0,
+			duration: 0.55,
+			stagger: 0.08,
+			ease: 'back.out(2.2)',
+			delay: 0.35
+		});
+
+		// Animate logo area
+		gsap.from('.logo-area', {
+			scale: 0.92,
+			opacity: 0,
+			duration: 0.8,
+			delay: 0.15,
+			ease: 'power3.out'
+		});
+
+		// Animate subtitle
+		gsap.from('.subtitle', {
+			opacity: 0,
+			y: 12,
+			duration: 0.75,
+			delay: 0.45,
+			ease: 'power2.out'
+		});
+
+		// Animate search card slide-up with a springy ease
+		gsap.from('.card', {
+			opacity: 0,
+			y: 24,
+			duration: 0.9,
+			delay: 0.55,
+			ease: 'power3.out'
+		});
+
+		// Animate scan my profile button and options details
+		gsap.from('.user-cta, .options-details', {
+			opacity: 0,
+			y: 10,
+			duration: 0.8,
+			delay: 0.75,
+			stagger: 0.1,
+			ease: 'power2.out'
+		});
+	});
+
+	const form = document.getElementById('scan-form') as HTMLFormElement;
+	const usernameInput = document.getElementById('username') as HTMLInputElement;
+	const privateInput = document.getElementById('include-private') as HTMLInputElement | null;
+	const forksInput = document.getElementById('include-forks') as HTMLInputElement;
+	const archivedInput = document.getElementById('include-archived') as HTMLInputElement;
+	const limitInput = document.getElementById('max-repos') as HTMLInputElement;
+	const scanMineBtn = document.getElementById('btn-scan-mine') as HTMLButtonElement;
+
+	function triggerScan(targetUsername: string) {
+		const params = new URLSearchParams();
+		if (privateInput?.checked) {
+			const hasPrivate = privateInput.getAttribute('data-has-private') === 'true';
+			if (!hasPrivate) {
+				const targetRedirect = `/${encodeURIComponent(targetUsername)}?private=true&forks=${forksInput?.checked ? 'true' : 'false'}&archived=${archivedInput?.checked ? 'true' : 'false'}&limit=${limitInput?.value || '100'}`;
+				window.location.href = `/api/auth/login?redirect=${encodeURIComponent(targetRedirect)}`;
+				return;
+			}
+			params.set('private', 'true');
+		}
+		if (forksInput?.checked) params.set('forks', 'true');
+		if (archivedInput?.checked) params.set('archived', 'true');
+		if (limitInput && limitInput.value !== '100') params.set('limit', limitInput.value);
+
+		const queryString = params.toString();
+		const targetUrl = `/${encodeURIComponent(targetUsername)}${queryString ? '?' + queryString : ''}`;
+		window.location.href = targetUrl;
+	}
+
+	form?.addEventListener('submit', (e) => {
+		e.preventDefault();
+		const username = usernameInput.value.trim();
+		if (!username) return;
+
+		let cleanUsername = username;
+		if (username.includes('github.com/')) {
+			const parts = username.split('github.com/');
+			if (parts[1]) {
+				cleanUsername = parts[1].split('/')[0].split('?')[0];
+			}
+		}
+
+		triggerScan(cleanUsername);
+	});
+
+	scanMineBtn?.addEventListener('click', () => {
+		const mineUsername = scanMineBtn.getAttribute('data-username');
+		if (mineUsername) {
+			triggerScan(mineUsername);
+		}
+	});
+</script>
+
+<style>
+	.container {
+		max-width: 800px;
+		margin: 0 auto;
+		padding: 80px 24px;
+		min-height: calc(100vh - 70px);
+		display: flex;
+		flex-direction: column;
+		justify-content: center;
+	}
+
+	.hero-section {
+		display: flex;
+		flex-direction: column;
+		align-items: center;
+		text-align: center;
+		gap: 32px;
+	}
+
+	.logo-area {
+		display: flex;
+		align-items: center;
+		gap: 16px;
+	}
+
+	.radar-logo-svg {
+		width: 48px;
+		height: 48px;
+		color: #ffffff;
+		flex-shrink: 0;
+	}
+
+	.radar-sweep-line {
+		transform-origin: 12px 12px;
+		animation: radarSweep 6s infinite linear;
+	}
+
+	@keyframes radarSweep {
+		from { transform: rotate(0deg); }
+		to { transform: rotate(360deg); }
+	}
+
+	.logo-text {
+		font-size: 2.8rem;
+		text-transform: uppercase;
+		display: inline-flex;
+		align-items: center;
+	}
+
+	.wordmark-stack {
+		font-weight: 900;
+		letter-spacing: 2px;
+		color: #ffffff;
+	}
+
+	.wordmark-divider {
+		color: var(--color-accent, #ffffff);
+		margin: 0 6px;
+		opacity: 0.8;
+	}
+
+	.wordmark-scan {
+		font-weight: 300;
+		letter-spacing: 2px;
+		color: rgba(255, 255, 255, 0.7);
+	}
+
+	/* Telemetry indicators */
+	.telemetry-bar {
+		display: flex;
+		justify-content: center;
+		gap: 24px;
+		font-family: var(--font-mono);
+		font-size: 0.7rem;
+		color: var(--text-muted);
+		text-transform: uppercase;
+		letter-spacing: 1px;
+		margin-bottom: 8px;
+	}
+
+	.telemetry-item {
+		display: flex;
+		align-items: center;
+		gap: 6px;
+	}
+
+	.blink-dot {
+		width: 5px;
+		height: 5px;
+		background: #10b981; /* Green */
+		border-radius: 50%;
+		animation: blink 1.5s infinite ease-in-out;
+	}
+
+	@keyframes blink {
+		0%, 100% { opacity: 0.3; }
+		50% { opacity: 1; }
+	}
+
+	/* Targeting Frame */
+	.target-frame {
+		position: relative;
+		padding: 24px 48px;
+		margin-bottom: 8px;
+		border: 1px solid rgba(255, 255, 255, 0.03);
+		background: rgba(255, 255, 255, 0.015);
+		display: inline-flex;
+		align-items: center;
+		justify-content: center;
+		backdrop-filter: blur(8px);
+		-webkit-backdrop-filter: blur(8px);
+	}
+
+	.frame-corner {
+		position: absolute;
+		width: 12px;
+		height: 12px;
+		border: 1px solid #ffffff;
+	}
+
+	.frame-corner.top-left {
+		top: -1px;
+		left: -1px;
+		border-right: none;
+		border-bottom: none;
+	}
+
+	.frame-corner.top-right {
+		top: -1px;
+		right: -1px;
+		border-left: none;
+		border-bottom: none;
+	}
+
+	.frame-corner.bottom-left {
+		bottom: -1px;
+		left: -1px;
+		border-right: none;
+		border-top: none;
+	}
+
+	.frame-corner.bottom-right {
+		bottom: -1px;
+		right: -1px;
+		border-left: none;
+		border-top: none;
+	}
+
+	.subtitle {
+		font-size: 1.15rem;
+		color: var(--text-secondary);
+		max-width: 550px;
+		line-height: 1.6;
+	}
+
+	.card {
+		width: 100%;
+		padding: 32px;
+		display: flex;
+		flex-direction: column;
+		gap: 20px;
+		text-align: left;
+	}
+
+	.scan-form-box {
+		position: relative;
+		display: flex;
+		align-items: center;
+		border: 1px solid var(--panel-border);
+		background: rgba(0, 0, 0, 0.35);
+		border-radius: 4px;
+		padding: 12px 16px;
+		width: 100%;
+		transition: border-color 0.2s ease;
+	}
+
+	.scan-form-box:focus-within {
+		border-color: #ffffff;
+	}
+
+	.scan-form-box input {
+		flex-grow: 1;
+		background: transparent !important;
+		border: none !important;
+		outline: none !important;
+		color: #ffffff !important;
+		font-size: 1rem !important;
+		padding: 0 !important;
+	}
+
+	.scan-form-box button {
+		background: transparent !important;
+		border: none !important;
+		color: var(--text-muted) !important;
+		cursor: pointer !important;
+		padding: 4px 8px !important;
+		font-size: 1.25rem !important;
+		display: flex !important;
+		align-items: center !important;
+		justify-content: center !important;
+		transition: color 0.2s ease !important;
+	}
+
+	.scan-form-box input:focus + button,
+	.scan-form-box button:hover {
+		color: #ffffff !important;
+	}
+
+	.options-details {
+		border-top: 1px solid var(--panel-border);
+		padding-top: 16px;
+	}
+
+	.options-summary {
+		list-style: none;
+		cursor: pointer;
+		font-size: 0.9rem;
+		color: var(--text-secondary);
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		user-select: none;
+	}
+
+	.options-summary::-webkit-details-marker {
+		display: none;
+	}
+
+	.options-summary .chevron {
+		transition: transform 0.2s ease;
+		color: var(--text-muted);
+	}
+
+	.options-details[open] .options-summary .chevron {
+		transform: rotate(180deg);
+	}
+
+	.options-grid {
+		display: grid;
+		grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+		gap: 20px;
+		margin-top: 16px;
+		animation: fadeIn 0.2s ease forwards;
+	}
+
+	.toggle-label {
+		display: flex;
+		align-items: center;
+		gap: 12px;
+		cursor: pointer;
+		user-select: none;
+		font-size: 0.85rem;
+		color: var(--text-secondary);
+	}
+
+	.toggle-label input {
+		position: absolute;
+		opacity: 0;
+		cursor: pointer;
+		height: 0;
+		width: 0;
+	}
+
+	.toggle-custom {
+		position: relative;
+		display: inline-block;
+		width: 40px;
+		height: 20px;
+		background-color: rgba(255, 255, 255, 0.08);
+		border-radius: 9999px;
+		transition: background-color 0.2s ease;
+		border: 1px solid var(--panel-border);
+	}
+
+	.toggle-custom::before {
+		content: "";
+		position: absolute;
+		height: 12px;
+		width: 12px;
+		left: 3px;
+		bottom: 3px;
+		background-color: var(--text-secondary);
+		border-radius: 50%;
+		transition: transform 0.2s ease;
+	}
+
+	.toggle-label input:checked ~ .toggle-custom {
+		background-color: var(--color-primary);
+		border-color: var(--color-primary);
+	}
+
+	.toggle-label input:checked ~ .toggle-custom::before {
+		transform: translateX(20px);
+		background-color: #121218;
+	}
+
+	.limit-wrapper {
+		display: flex;
+		flex-direction: column;
+		gap: 6px;
+	}
+
+	.limit-wrapper label {
+		font-size: 0.8rem;
+		color: var(--text-secondary);
+	}
+
+	.limit-input {
+		background: rgba(0, 0, 0, 0.2);
+		border: 1px solid var(--panel-border);
+		color: var(--text-primary);
+		padding: 6px 12px;
+		border-radius: 8px;
+		width: 100px;
+		font-size: 0.85rem;
+		font-weight: 500;
+	}
+
+	.limit-input:focus {
+		border-color: var(--color-primary);
+	}
+
+	/* User CTA */
+	.user-cta {
+		width: 100%;
+		display: flex;
+		justify-content: center;
+	}
+
+	.btn-large-glowing {
+		padding: 14px 28px;
+		font-size: 0.8rem;
+		text-transform: uppercase;
+		letter-spacing: 1.17px;
+		border-radius: 9999px;
+		display: inline-flex;
+		align-items: center;
+		gap: 10px;
+		font-weight: 700;
+		background: transparent !important;
+		border: 1px solid #ffffff !important;
+		color: #ffffff !important;
+		cursor: pointer;
+		text-decoration: none;
+		transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+	}
+
+	.btn-large-glowing:hover {
+		background: #ffffff !important;
+		color: #000000 !important;
+	}
+
+	.quick-links {
+		display: flex;
+		flex-direction: column;
+		align-items: center;
+		gap: 12px;
+	}
+
+	.quick-title {
+		font-size: 0.8rem;
+		color: var(--text-muted);
+	}
+
+	.pills-container {
+		display: flex;
+		flex-wrap: wrap;
+		justify-content: center;
+		gap: 10px;
+	}
+
+	.quick-pill {
+		text-decoration: none;
+		font-size: 0.8rem;
+		color: var(--text-secondary);
+		background: rgba(255, 255, 255, 0.02);
+		border: 1px solid var(--panel-border);
+		padding: 6px 14px;
+		border-radius: 9999px;
+		transition: all 0.2s ease;
+	}
+
+	.quick-pill:hover {
+		background: rgba(255, 255, 255, 0.05);
+		border-color: var(--text-secondary);
+		color: var(--text-primary);
+	}
+
+	@media (max-width: 640px) {
+		.container {
+			padding: 40px 16px;
+		}
+
+		.logo-text {
+			font-size: 2.2rem;
+		}
+
+		.btn-large-glowing {
+			width: 100%;
+			justify-content: center;
+		}
+	}
+</style>

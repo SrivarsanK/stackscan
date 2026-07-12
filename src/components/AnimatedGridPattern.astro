@@ -1,0 +1,168 @@
+---
+interface Props {
+  width?: number;
+  height?: number;
+  x?: number;
+  y?: number;
+  strokeDasharray?: string;
+  numSquares?: number;
+  className?: string;
+  maxOpacity?: number;
+  duration?: number;
+}
+
+const {
+  width = 40,
+  height = 40,
+  x = -1,
+  y = -1,
+  strokeDasharray = "0",
+  numSquares = 30,
+  className = "",
+  maxOpacity = 0.08,
+  duration = 4,
+} = Astro.props;
+
+const id = `grid-pattern-${Math.random().toString(36).substring(2, 9)}`;
+---
+
+<svg
+  aria-hidden="true"
+  class={`animated-grid-pattern ${className}`}
+  data-width={width}
+  data-height={height}
+  data-num-squares={numSquares}
+  data-max-opacity={maxOpacity}
+  data-duration={duration}
+  data-x={x}
+  data-y={y}
+>
+  <defs>
+    <pattern
+      id={id}
+      width={width}
+      height={height}
+      patternUnits="userSpaceOnUse"
+      x={x}
+      y={y}
+    >
+      <path
+        d={`M.5 ${height}V.5H${width}`}
+        fill="none"
+        stroke-dasharray={strokeDasharray}
+      />
+    </pattern>
+  </defs>
+  <rect width="100%" height="100%" fill={`url(#${id})`} />
+  <svg x={x} y={y} class="overflow-visible squares-container">
+    {/* Squares will be generated and animated on client-side */}
+  </svg>
+</svg>
+
+<style is:global>
+  .animated-grid-pattern {
+    position: fixed;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    fill: rgba(255, 255, 255, 0.015);
+    stroke: rgba(255, 255, 255, 0.02);
+    pointer-events: none;
+    z-index: 0;
+    
+    /* Radial mask fadeout */
+    mask-image: radial-gradient(circle at center, rgba(0, 0, 0, 1) 0%, rgba(0, 0, 0, 0) 75%);
+    -webkit-mask-image: radial-gradient(circle at center, rgba(0, 0, 0, 1) 0%, rgba(0, 0, 0, 0) 75%);
+    
+    /* Tilted projection */
+    transform: skewY(-12deg) scale(1.4);
+    transform-origin: center;
+  }
+
+  @keyframes fadeGridSquare {
+    0%, 100% { opacity: 0; }
+    50% { opacity: var(--grid-max-opacity, 0.08); }
+  }
+
+  .grid-anim-square {
+    animation: fadeGridSquare var(--grid-duration, 4s) infinite ease-in-out;
+    color: rgba(255, 255, 255, 0.15);
+  }
+</style>
+
+<script>
+  function initGridPatterns() {
+    const grids = document.querySelectorAll('.animated-grid-pattern');
+    
+    grids.forEach(grid => {
+      const width = parseInt(grid.getAttribute('data-width') || '40', 10);
+      const height = parseInt(grid.getAttribute('data-height') || '40', 10);
+      const numSquares = parseInt(grid.getAttribute('data-num-squares') || '30', 10);
+      const maxOpacity = parseFloat(grid.getAttribute('data-max-opacity') || '0.08');
+      const duration = parseFloat(grid.getAttribute('data-duration') || '4');
+      const container = grid.querySelector('.squares-container') as Element;
+      
+      if (!container) return;
+      
+      let gridWidth = 0;
+      let gridHeight = 0;
+      
+      const resizeObserver = new ResizeObserver(entries => {
+        for (let entry of entries) {
+          gridWidth = entry.contentRect.width;
+          gridHeight = entry.contentRect.height;
+          rebuildSquares();
+        }
+      });
+      
+      resizeObserver.observe(grid);
+      
+      function rebuildSquares() {
+        container.innerHTML = '';
+        if (gridWidth === 0 || gridHeight === 0) return;
+        
+        const cols = Math.floor(gridWidth / width);
+        const rows = Math.floor(gridHeight / height);
+        
+        if (cols <= 0 || rows <= 0) return;
+        
+        for (let i = 0; i < numSquares; i++) {
+          const rect = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+          
+          const col = Math.floor(Math.random() * cols);
+          const row = Math.floor(Math.random() * rows);
+          
+          rect.setAttribute('width', (width - 1).toString());
+          rect.setAttribute('height', (height - 1).toString());
+          rect.setAttribute('x', (col * width + 1).toString());
+          rect.setAttribute('y', (row * height + 1).toString());
+          rect.setAttribute('fill', 'currentColor');
+          rect.setAttribute('stroke-width', '0');
+          rect.classList.add('grid-anim-square');
+          
+          // Set custom CSS variables for animation config
+          rect.style.setProperty('--grid-max-opacity', maxOpacity.toString());
+          rect.style.setProperty('--grid-duration', `${duration}s`);
+          
+          // Stagger the start delays
+          const delay = (Math.random() * duration).toFixed(2);
+          rect.style.animationDelay = `${delay}s`;
+          
+          // Relocate when iteration completes
+          rect.addEventListener('animationiteration', () => {
+            const nextCol = Math.floor(Math.random() * cols);
+            const nextRow = Math.floor(Math.random() * rows);
+            rect.setAttribute('x', (nextCol * width + 1).toString());
+            rect.setAttribute('y', (nextRow * height + 1).toString());
+          });
+          
+          container.appendChild(rect);
+        }
+      }
+    });
+  }
+
+  // Run on page load and page transitions
+  document.addEventListener('DOMContentLoaded', initGridPatterns);
+  document.addEventListener('astro:after-swap', initGridPatterns);
+</script>

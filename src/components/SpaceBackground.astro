@@ -1,0 +1,136 @@
+<canvas id="space-canvas"></canvas>
+
+<script>
+  interface Particle {
+    color: string;
+    radius: number;
+    x: number;
+    y: number;
+    ring: number;
+    move: number;
+    random: number;
+  }
+
+  const canvas = document.getElementById('space-canvas') as HTMLCanvasElement;
+  if (canvas) {
+    const ctx = canvas.getContext('2d');
+    if (ctx) {
+      let animationFrameId: number | null = null;
+      let ratio = window.innerHeight < 400 ? 0.6 : 1;
+      const particleCount = 280;
+      const particles: Particle[] = [];
+      const r = 100; // inner radius
+      let counter = 0;
+
+      // Color palette for space theme (nebula and stars)
+      const colors = [
+        'rgba(99, 102, 241, 0.45)',  // Indigo
+        'rgba(6, 182, 212, 0.55)',   // Cyan
+        'rgba(168, 85, 247, 0.45)',  // Purple
+        'rgba(255, 255, 255, 0.85)', // White
+        'rgba(14, 165, 233, 0.5)',   // Sky Blue
+      ];
+
+      const setupCanvas = () => {
+        canvas.width = window.innerWidth;
+        canvas.height = window.innerHeight;
+        ctx.setTransform(ratio, 0, 0, -ratio, canvas.width / 2, canvas.height / 2);
+      };
+
+      const createParticle = () => {
+        const color = colors[Math.floor(Math.random() * colors.length)];
+        particles.push({
+          color,
+          radius: Math.random() * 3.5 + 0.5,
+          x: Math.cos(Math.random() * 7 + Math.PI) * r,
+          y: Math.sin(Math.random() * 7 + Math.PI) * r,
+          ring: Math.random() * r * 5,
+          move: (Math.random() * 3 + 1) / 800,
+          random: Math.random() * 7,
+        });
+      };
+
+      for (let i = 0; i < particleCount; i++) {
+        createParticle();
+      }
+
+      const moveParticle = (p: Particle) => {
+        p.ring = Math.max(p.ring - 0.35, r);
+        p.random += p.move;
+        p.x = Math.cos(p.random + Math.PI) * p.ring;
+        p.y = Math.sin(p.random + Math.PI) * p.ring;
+      };
+
+      const resetParticle = (p: Particle) => {
+        p.ring = Math.random() * r * 5;
+        p.radius = Math.random() * 3.5 + 0.5;
+      };
+
+      const disappear = (p: Particle) => {
+        if (p.radius < 0.6) resetParticle(p);
+        p.radius *= 0.996;
+      };
+
+      const draw = (p: Particle) => {
+        ctx.beginPath();
+        ctx.fillStyle = p.color;
+        // Add subtle glow to white/bright stars
+        if (p.color.includes('255, 255')) {
+          ctx.shadowBlur = 8;
+          ctx.shadowColor = 'rgba(6, 182, 212, 0.6)';
+        } else {
+          ctx.shadowBlur = 0;
+        }
+        ctx.arc(p.x, p.y, p.radius, 0, Math.PI * 2);
+        ctx.fill();
+      };
+
+      const loop = () => {
+        ctx.clearRect(-canvas.width, -canvas.height, canvas.width * 2, canvas.height * 2);
+        
+        // Draw orbital rings very faintly to suggest space geometry
+        ctx.shadowBlur = 0;
+        ctx.strokeStyle = 'rgba(255, 255, 255, 0.01)';
+        ctx.lineWidth = 0.5;
+        ctx.beginPath();
+        ctx.arc(0, 0, r * 1.5, 0, Math.PI * 2);
+        ctx.stroke();
+        ctx.beginPath();
+        ctx.arc(0, 0, r * 3, 0, Math.PI * 2);
+        ctx.stroke();
+
+        if (counter < particles.length) counter += 2;
+        const activeCount = Math.min(counter, particles.length);
+        
+        for (let i = 0; i < activeCount; i++) {
+          disappear(particles[i]);
+          moveParticle(particles[i]);
+          draw(particles[i]);
+        }
+        animationFrameId = requestAnimationFrame(loop);
+      };
+
+      setupCanvas();
+      loop();
+
+      window.addEventListener('resize', () => {
+        ratio = window.innerHeight < 400 ? 0.6 : 1;
+        setupCanvas();
+      });
+    }
+  }
+</script>
+
+<style>
+  #space-canvas {
+    position: fixed;
+    top: 0;
+    left: 0;
+    z-index: -1;
+    display: block;
+    width: 100vw;
+    height: 100vh;
+    background: transparent;
+    pointer-events: none;
+  }
+</style>

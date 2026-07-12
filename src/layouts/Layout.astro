@@ -1,3 +1,24 @@
+---
+import '../styles/global.css';
+import AnimatedGridPattern from '../components/AnimatedGridPattern.astro';
+
+interface Props {
+	title?: string;
+}
+
+const { title = 'StackScan — GitHub Profile Tech Stack Scanner' } = Astro.props;
+
+const githubUserCookie = Astro.cookies.get('github_user')?.value;
+let user = null;
+if (githubUserCookie) {
+	try {
+		user = JSON.parse(githubUserCookie);
+	} catch (e) {
+		// Ignore parsing issues
+	}
+}
+---
+
 <!doctype html>
 <html lang="en">
 	<head>
@@ -6,18 +27,302 @@
 		<link rel="icon" type="image/svg+xml" href="/favicon.svg" />
 		<link rel="icon" href="/favicon.ico" />
 		<meta name="generator" content={Astro.generator} />
-		<title>Astro Basics</title>
+		<meta name="description" content="Aggregate, de-duplicate, and analyze the technologies, frameworks, and languages used across public GitHub repositories." />
+		<title>{title}</title>
+		<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@latest/dist/tabler-icons.min.css" />
+		<script is:inline>
+			const theme = localStorage.getItem('stackscan-theme') || 'cyan';
+			document.documentElement.setAttribute('data-theme', theme);
+		</script>
 	</head>
 	<body>
-		<slot />
+		<AnimatedGridPattern width={45} height={45} numSquares={50} maxOpacity={0.08} duration={5} />
+		<nav class="navbar glass">
+			<div class="nav-container">
+				<a href="/" class="nav-logo">
+					<svg class="radar-logo-svg small" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+						<circle cx="12" cy="12" r="10" stroke-dasharray="3 3" opacity="0.3"></circle>
+						<circle cx="12" cy="12" r="6" stroke-dasharray="2 2" opacity="0.5"></circle>
+						<circle cx="12" cy="12" r="2" fill="currentColor"></circle>
+						<path d="M12 2v10l7 4" class="radar-sweep-line"></path>
+					</svg>
+					<span class="logo-text-small">
+						<span class="wordmark-stack">STACK</span><span class="wordmark-divider">//</span><span class="wordmark-scan">SCAN</span>
+					</span>
+				</a>
+				
+				<div class="nav-actions">
+					<div class="theme-selector-wrapper">
+						<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="palette-icon"><path d="M12 22C17.5228 22 22 17.5228 22 12C22 6.47715 17.5228 2 12 2C6.47715 2 2 6.47715 2 12C2 14.7255 3.09032 17.1962 4.85857 19C5.35624 19.5 5.00287 20.3424 4.31682 20.21C3.21042 19.9965 2 20.5 2 22C2 23 3 22 5 22H12Z"></path><circle cx="7.5" cy="10.5" r="1.5"></circle><circle cx="11.5" cy="7.5" r="1.5"></circle><circle cx="16.5" cy="9.5" r="1.5"></circle><circle cx="15.5" cy="14.5" r="1.5"></circle></svg>
+						<select id="theme-selector" class="theme-select" aria-label="Theme Selector">
+							<option value="cyan">Cyan</option>
+							<option value="orange">Orange</option>
+							<option value="amber">Amber</option>
+							<option value="lime">Lime</option>
+							<option value="emerald">Emerald</option>
+							<option value="teal">Teal</option>
+							<option value="sky">Sky</option>
+							<option value="blue">Blue</option>
+							<option value="indigo">Indigo</option>
+							<option value="violet">Violet</option>
+							<option value="purple">Purple</option>
+							<option value="magenta">Magenta</option>
+						</select>
+					</div>
+
+					{user ? (
+						<div class="nav-user">
+							<img src={user.avatar_url} alt={user.login} class="nav-avatar" />
+							<span class="nav-username">@{user.login}</span>
+							<a href="/api/auth/logout" class="nav-btn btn-secondary-small">Logout</a>
+						</div>
+					) : (
+						<div class="login-wrapper">
+							<a href="/api/auth/login" class="nav-btn btn-primary-small" id="nav-login-btn">
+								<svg class="github-icon" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 19c-5 1.5-5-2.5-7-3m14 6v-3.87a3.37 3.37 0 0 0-.94-2.61c3.14-.35 6.44-1.54 6.44-7A5.44 5.44 0 0 0 20 4.77 5.07 5.07 0 0 0 19.91 1S18.73.65 16 2.48a13.38 13.38 0 0 0-7 0C6.27.65 5.09 1 5.09 1A5.07 5.07 0 0 0 5 4.77a5.44 5.44 0 0 0-1.5 3.78c0 5.42 3.3 6.61 6.44 7A3.37 3.37 0 0 0 9 18.13V22"></path></svg>
+								<span>Login with GitHub</span>
+							</a>
+						</div>
+					)}
+				</div>
+			</div>
+		</nav>
+		
+		<div class="page-content">
+			<slot />
+		</div>
+
+		<script is:inline>
+			const selector = document.getElementById('theme-selector');
+			if (selector) {
+				selector.value = localStorage.getItem('stackscan-theme') || 'cyan';
+				selector.addEventListener('change', (e) => {
+					const newTheme = e.target.value;
+					document.documentElement.setAttribute('data-theme', newTheme);
+					localStorage.setItem('stackscan-theme', newTheme);
+				});
+			}
+		</script>
 	</body>
 </html>
 
 <style>
-	html,
-	body {
-		margin: 0;
-		width: 100%;
-		height: 100%;
+	.navbar {
+		position: sticky;
+		top: 0;
+		z-index: 100;
+		border-radius: 0 !important;
+		border-left: none !important;
+		border-right: none !important;
+		border-top: none !important;
+		padding: 12px 24px;
+	}
+
+	.nav-container {
+		max-width: 1200px;
+		margin: 0 auto;
+		display: flex;
+		justify-content: space-between;
+		align-items: center;
+	}
+
+	.nav-logo {
+		display: flex;
+		align-items: center;
+		gap: 10px;
+		text-decoration: none;
+	}
+
+	.radar-logo-svg {
+		width: 32px;
+		height: 32px;
+		color: #ffffff;
+		flex-shrink: 0;
+	}
+
+	.radar-logo-svg.small {
+		width: 22px;
+		height: 22px;
+	}
+
+	.radar-sweep-line {
+		transform-origin: 12px 12px;
+		animation: radarSweep 6s infinite linear;
+	}
+
+	@keyframes radarSweep {
+		from { transform: rotate(0deg); }
+		to { transform: rotate(360deg); }
+	}
+
+	.logo-text-small {
+		font-size: 1.1rem;
+		text-transform: uppercase;
+		display: inline-flex;
+		align-items: center;
+	}
+
+	.wordmark-stack {
+		font-weight: 900;
+		letter-spacing: 1.5px;
+		color: #ffffff;
+	}
+
+	.wordmark-divider {
+		color: var(--color-accent, #ffffff);
+		margin: 0 4px;
+		opacity: 0.8;
+	}
+
+	.wordmark-scan {
+		font-weight: 300;
+		letter-spacing: 1.5px;
+		color: rgba(255, 255, 255, 0.7);
+	}
+
+	.nav-actions {
+		display: flex;
+		align-items: center;
+		gap: 16px;
+	}
+
+	.theme-selector-wrapper {
+		display: flex;
+		align-items: center;
+		gap: 6px;
+		background: rgba(255, 255, 255, 0.03);
+		border: 1px solid rgba(255, 255, 255, 0.08);
+		border-radius: 8px;
+		padding: 4px 8px;
+		transition: all 0.2s;
+	}
+
+	.theme-selector-wrapper:hover {
+		border-color: rgba(255, 255, 255, 0.15);
+		background: rgba(255, 255, 255, 0.05);
+	}
+
+	.palette-icon {
+		color: var(--color-primary);
+		opacity: 0.8;
+	}
+
+	.theme-select {
+		background: transparent;
+		border: none;
+		color: var(--text-primary);
+		font-size: 0.85rem;
+		font-weight: 500;
+		outline: none;
+		cursor: pointer;
+		padding-right: 4px;
+	}
+
+	.theme-select option {
+		background: #0d0e12;
+		color: var(--text-primary);
+	}
+
+	.nav-user {
+		display: flex;
+		align-items: center;
+		gap: 12px;
+	}
+
+	.nav-avatar {
+		width: 32px;
+		height: 32px;
+		border-radius: 50%;
+		border: 1.5px solid var(--color-primary);
+	}
+
+	.nav-username {
+		font-size: 0.9rem;
+		font-weight: 600;
+		color: var(--text-secondary);
+		font-family: var(--font-sans);
+	}
+
+	.nav-btn {
+		text-decoration: none;
+		font-weight: 600;
+		font-size: 0.85rem;
+		display: inline-flex;
+		align-items: center;
+		gap: 6px;
+		border-radius: 6px;
+		transition: all 0.2s;
+	}
+
+	.btn-primary-small {
+		background: linear-gradient(135deg, var(--color-primary) 0%, var(--color-accent) 100%);
+		color: #000;
+		padding: 6px 14px;
+		border: none;
+	}
+
+	.btn-primary-small:hover {
+		transform: translateY(-1px);
+		filter: brightness(1.1);
+	}
+
+	.btn-secondary-small {
+		background: rgba(255, 255, 255, 0.05);
+		border: 1px solid rgba(255, 255, 255, 0.08);
+		color: var(--text-primary);
+		padding: 5px 12px;
+	}
+
+	.btn-secondary-small:hover {
+		background: rgba(255, 255, 255, 0.08);
+	}
+
+	.github-icon {
+		stroke: #000;
+	}
+
+	.login-wrapper {
+		display: flex;
+		align-items: center;
+		gap: 16px;
+	}
+
+	.page-content {
+		position: relative;
+	}
+
+	@media (max-width: 600px) {
+		.navbar {
+			padding: 10px 16px;
+		}
+
+		.nav-container {
+			gap: 12px;
+		}
+
+		.logo-icon-small {
+			display: none; /* Hide icon to fit logo text */
+		}
+
+		.nav-username {
+			display: none; /* Hide username text to fit logout details */
+		}
+
+		.theme-selector-wrapper {
+			padding: 4px 6px;
+		}
+
+		.nav-btn {
+			padding: 6px 10px;
+			font-size: 0.8rem;
+		}
+
+		.btn-primary-small span {
+			display: none;
+		}
+		
+		.btn-primary-small::after {
+			content: "Login";
+		}
 	}
 </style>

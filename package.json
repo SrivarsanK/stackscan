@@ -9,9 +9,15 @@
     "dev": "astro dev",
     "build": "astro build",
     "preview": "astro preview",
-    "astro": "astro"
+    "astro": "astro",
+    "impeccable": "npx impeccable"
   },
   "dependencies": {
-    "astro": "^7.0.7"
+    "@astrojs/node": "^11.0.2",
+    "@specfy/stack-analyser": "^1.27.6",
+    "astro": "^7.0.7",
+    "gsap": "^3.15.0",
+    "motion": "^12.42.2",
+    "tar": "^7.5.20"
   }
 }

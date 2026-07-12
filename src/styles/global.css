@@ -1,0 +1,194 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700;800;900&family=JetBrains+Mono:wght@400;500&display=swap');
+
+html[data-theme="orange"] { --primary-hue: 40; }
+html[data-theme="amber"] { --primary-hue: 70; }
+html[data-theme="lime"] { --primary-hue: 110; }
+html[data-theme="emerald"] { --primary-hue: 150; }
+html[data-theme="teal"] { --primary-hue: 180; }
+html[data-theme="cyan"] { --primary-hue: 200; }
+html[data-theme="sky"] { --primary-hue: 225; }
+html[data-theme="blue"] { --primary-hue: 250; }
+html[data-theme="indigo"] { --primary-hue: 265; }
+html[data-theme="violet"] { --primary-hue: 283; }
+html[data-theme="purple"] { --primary-hue: 305; }
+html[data-theme="magenta"] { --primary-hue: 335; }
+
+:root {
+  --primary-hue: 200; /* SpaceX default cyan accents */
+  
+  /* SpaceX pure black palette */
+  --bg-color: #000000;
+  --panel-bg: #070708;
+  --panel-border: #222226;
+  
+  --color-primary: #ffffff;
+  --color-accent: oklch(72% 0.18 var(--primary-hue));
+  
+  /* Category Colors (Flat, readable text-on-fill contrast) */
+  --cat-frontend: #3b82f6;      /* Blue */
+  --cat-backend: #10b981;       /* Emerald */
+  --cat-infra-data: #f97316;    /* Orange */
+  --cat-tooling: #8a8a93;       /* Cool Grey */
+  
+  --text-primary: #ffffff;
+  --text-secondary: #f0f0fa;
+  --text-muted: #5a5a5f;
+  
+  --font-sans: 'Inter', system-ui, -apple-system, sans-serif;
+  --font-display: 'Inter', 'Arial Narrow', sans-serif;
+  --font-mono: 'JetBrains Mono', monospace;
+}
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html, body {
+  background-color: var(--bg-color);
+  color: var(--text-primary);
+  font-family: var(--font-sans);
+  min-height: 100vh;
+  overflow-x: hidden;
+  line-height: 1.5;
+}
+
+body {
+  /* Premium SpaceX Space Canvas with Nebula Glow */
+  background: radial-gradient(circle at 50% 50%, rgba(99, 102, 241, 0.05) 0%, rgba(6, 182, 212, 0.03) 50%, #000000 100%);
+}
+
+/* Custom Scrollbar */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: rgba(0, 0, 0, 0.1);
+}
+::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 9999px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--color-primary);
+}
+
+/* Flat Card Surfaces */
+.glass {
+  background: rgba(7, 7, 8, 0.7);
+  border: 1px solid var(--panel-border);
+  border-radius: 4px; /* SpaceX rounded.xs/sm 4px-8px */
+  transition: border-color 0.2s ease, transform 0.2s ease;
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+}
+
+.glass-interactive {
+  transition: border-color 0.2s ease, background-color 0.2s ease;
+}
+.glass-interactive:hover {
+  border-color: var(--color-primary);
+}
+
+/* Typography elements */
+h1, h2, h3, h4, h5, h6 {
+  font-family: var(--font-display);
+  text-transform: uppercase;
+  font-weight: 800;
+  letter-spacing: 1.2px;
+  line-height: 1.1;
+  color: var(--text-primary);
+}
+
+h1 {
+  font-size: 3rem;
+  letter-spacing: 1.6px;
+  line-height: 0.95;
+}
+
+/* Base Form Inputs & Buttons */
+input, select, button {
+  font-family: inherit;
+  font-weight: 500;
+  outline: none;
+}
+
+/* Outlined ghost pill buttons (SpaceX style) */
+.btn {
+  background: transparent !important;
+  border: 1px solid #ffffff !important;
+  color: #ffffff !important;
+  text-transform: uppercase;
+  font-weight: 700;
+  font-size: 0.8rem;
+  letter-spacing: 1.17px;
+  padding: 12px 24px;
+  border-radius: 9999px !important;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.btn:hover {
+  background: #ffffff !important;
+  color: #000000 !important;
+}
+
+.btn-primary {
+  border-color: #ffffff !important;
+}
+
+.btn-secondary {
+  border-color: rgba(255, 255, 255, 0.4) !important;
+  color: rgba(255, 255, 255, 0.8) !important;
+}
+
+.btn-secondary:hover {
+  border-color: #ffffff !important;
+  background: #ffffff !important;
+  color: #000000 !important;
+}
+
+/* Tech Pill Common Styles */
+.tech-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 14px;
+  border-radius: 9999px;
+  font-size: 0.8rem;
+  text-transform: uppercase;
+  font-weight: 700;
+  letter-spacing: 0.8px;
+  transition: all 0.2s ease;
+  border: 1px solid var(--panel-border);
+  cursor: pointer;
+  background: rgba(255, 255, 255, 0.02);
+  color: var(--text-secondary);
+  text-decoration: none;
+}
+
+.tech-pill:hover {
+  background: rgba(255, 255, 255, 0.05);
+  border-color: #ffffff;
+}
+
+.tech-pill.active {
+  background: #ffffff !important;
+  border-color: #ffffff !important;
+  color: #000000 !important;
+}
+
+/* Animations */
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(4px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.animate-fade-in {
+  animation: fadeIn 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}

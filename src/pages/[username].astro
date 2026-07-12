@@ -1,0 +1,370 @@
+---
+import Layout from '../layouts/Layout.astro';
+import Dashboard from '../components/Dashboard.astro';
+import { getCachedUser } from '../lib/cache';
+
+const { username } = Astro.params;
+const refresh = Astro.url.searchParams.get('refresh') === 'true';
+
+if (!username) {
+  return Astro.redirect('/');
+}
+
+const includePrivate = Astro.url.searchParams.get('private') === 'true';
+const includeForks = Astro.url.searchParams.get('forks') === 'true';
+const includeArchived = Astro.url.searchParams.get('archived') === 'true';
+const maxReposStr = Astro.url.searchParams.get('limit');
+const maxRepos = maxReposStr ? parseInt(maxReposStr, 10) : 100;
+
+// Check cache first (unless refresh is forced)
+let cachedData = null;
+if (!refresh) {
+  cachedData = await getCachedUser(username, {
+    private: includePrivate,
+    forks: includeForks,
+    archived: includeArchived,
+    limit: maxRepos,
+  });
+}
+console.log(`[SSR] [username].astro rendering for ${username}. Cache hit: ${!!cachedData}`);
+---
+
+<Layout title={`${username} — StackScan Tech Profile`}>
+  {cachedData ? (
+    <Dashboard data={cachedData} />
+  ) : (
+    <main class="loader-container animate-fade-in">
+      <div class="loader-card glass">
+        <div class="loader-header">
+          <div class="spinner"></div>
+          <h2>Scanning @{username}</h2>
+        </div>
+        
+        <p class="loader-sub">
+          Aggregating and analyzing repositories. This takes up to 15 seconds.
+        </p>
+
+        <!-- Progress bar -->
+        <div class="progress-section" id="progress-section" style="display: none;">
+          <div class="progress-bar-wrapper">
+            <div class="progress-bar-fill" id="progress-bar" style="width: 0%"></div>
+          </div>
+          <div class="progress-stats">
+            <span id="progress-text">Processing...</span>
+            <span id="progress-fraction">0 / 0 repos</span>
+          </div>
+        </div>
+
+        <!-- Live logging -->
+        <div class="logs-card">
+          <div class="logs-header">
+            <span>Activity log</span>
+            <span class="live-dot"></span>
+          </div>
+          <div class="logs-body" id="status-logs">
+            <div class="log-line text-muted">Establishing connection...</div>
+          </div>
+        </div>
+
+        <div id="error-card" class="error-card" style="display: none;">
+          <i class="ti ti-alert-circle error-icon-ti"></i>
+          <div class="error-msg">
+            <h4 id="error-title">Scan failed</h4>
+            <p id="error-desc">An error occurred during scanning.</p>
+          </div>
+          <a href="/" class="btn btn-secondary">Go back</a>
+        </div>
+      </div>
+    </main>
+
+    <script>
+      import { gsap } from 'gsap';
+      import { animate } from 'motion';
+
+      // Load animation for card
+      window.addEventListener('DOMContentLoaded', () => {
+        gsap.from('.loader-card', {
+          opacity: 0,
+          scale: 0.96,
+          y: 20,
+          duration: 0.8,
+          ease: 'power3.out'
+        });
+      });
+
+      const statusLogs = document.getElementById('status-logs');
+      const progressSection = document.getElementById('progress-section');
+      const progressBar = document.getElementById('progress-bar');
+      const progressText = document.getElementById('progress-text');
+      const progressFraction = document.getElementById('progress-fraction');
+      const errorCard = document.getElementById('error-card');
+      const errorTitle = document.getElementById('error-title');
+      const errorDesc = document.getElementById('error-desc');
+      
+      const username = window.location.pathname.substring(1);
+      const params = new URLSearchParams(window.location.search);
+      // Remove refresh param so the reloaded page hits cache
+      params.delete('refresh');
+      
+      function addLog(text: string, type = 'info') {
+        if (!statusLogs) return;
+        const line = document.createElement('div');
+        line.className = `log-line ${type}`;
+        line.textContent = `[${new Date().toLocaleTimeString()}] ${text}`;
+        statusLogs.appendChild(line);
+        statusLogs.scrollTop = statusLogs.scrollHeight;
+        
+        // Animate log line slide-in
+        animate(line, { opacity: [0, 1], x: [-10, 0] }, { duration: 0.3 });
+      }
+
+      // Start EventSource
+      const eventSource = new EventSource(`/api/scan?username=${username}&${params.toString()}`, {
+        withCredentials: true
+      });
+
+      eventSource.addEventListener('status', (e) => {
+        const data = JSON.parse(e.data);
+        addLog(data.message);
+      });
+
+      eventSource.addEventListener('start', (e) => {
+        const data = JSON.parse(e.data);
+        if (progressSection) {
+          progressSection.style.display = 'block';
+          animate(progressSection, { opacity: [0, 1], y: [10, 0] }, { duration: 0.4 });
+        }
+        if (progressFraction) progressFraction.textContent = `0 / ${data.totalRepos} repos`;
+        const typeStr = params.get('private') === 'true' ? 'public and private' : 'public';
+        addLog(`Found ${data.totalRepos} ${typeStr} repositories.`);
+      });
+
+      eventSource.addEventListener('progress', (e) => {
+        const data = JSON.parse(e.data);
+        const percent = (data.current / data.total) * 100;
+        
+        if (progressBar) {
+          progressBar.style.transition = 'width 0.4s ease-out';
+          progressBar.style.width = `${percent}%`;
+        }
+        if (progressText) progressText.textContent = `Scanned ${data.repoName}`;
+        if (progressFraction) progressFraction.textContent = `${data.current} / ${data.total} repos`;
+        
+        addLog(`Completed: ${data.repoName} (${data.technologies.length} techs detected)`);
+      });
+
+      eventSource.addEventListener('done', (e) => {
+        addLog('Scan completed successfully! Reloading...');
+        eventSource.close();
+        
+        // Redirect to clean pathname to remove any 'refresh' or query params and load from cache
+        setTimeout(() => {
+          window.location.href = window.location.pathname;
+        }, 800);
+      });
+
+      eventSource.addEventListener('error', (e: any) => {
+        // SSE error connection closed or custom error
+        let msg = 'GitHub scanner encountered an issue.';
+        try {
+          const data = JSON.parse(e.data);
+          msg = data.message || msg;
+        } catch (_) {}
+        
+        addLog(`Error: ${msg}`, 'danger');
+        eventSource.close();
+
+        if (errorCard) {
+          errorCard.style.display = 'flex';
+          animate(errorCard, { opacity: [0, 1], scale: [0.96, 1] }, { duration: 0.3 });
+          if (errorDesc) errorDesc.textContent = msg;
+        }
+      });
+      
+      // Fallback timeout in case EventSource fails silently
+      setTimeout(() => {
+        if (statusLogs && statusLogs.children.length <= 1) {
+          addLog('Connecting timed out. Please check server settings.', 'danger');
+          if (errorCard) {
+            errorCard.style.display = 'flex';
+            animate(errorCard, { opacity: [0, 1], scale: [0.96, 1] }, { duration: 0.3 });
+            if (errorDesc) errorDesc.textContent = 'Connection timeout. Check your environment variables / GITHUB_PAT.';
+          }
+          eventSource.close();
+        }
+      }, 10000);
+    </script>
+  )}
+</Layout>
+
+<style>
+  .loader-container {
+    max-width: 600px;
+    margin: 0 auto;
+    padding: 100px 24px;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+  }
+
+  .loader-card {
+    padding: 40px;
+    display: flex;
+    flex-direction: column;
+    gap: 24px;
+  }
+
+  .loader-header {
+    display: flex;
+    align-items: center;
+    gap: 20px;
+  }
+
+  .loader-header h2 {
+    font-size: 1.6rem;
+    font-weight: 500;
+  }
+
+  .loader-sub {
+    color: var(--text-secondary);
+    font-size: 0.95rem;
+  }
+
+  .spinner {
+    width: 28px;
+    height: 28px;
+    border: 3px solid var(--panel-border);
+    border-top-color: var(--color-primary);
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+  }
+
+  /* Progress Bar */
+  .progress-section {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    animation: fadeIn 0.3s ease;
+  }
+
+  .progress-bar-wrapper {
+    height: 8px;
+    background: rgba(255, 255, 255, 0.05);
+    border-radius: 9999px;
+    overflow: hidden;
+  }
+
+  .progress-bar-fill {
+    height: 100%;
+    background: var(--color-primary);
+    border-radius: 9999px;
+    transition: width 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+
+  .progress-stats {
+    display: flex;
+    justify-content: space-between;
+    font-size: 0.85rem;
+    color: var(--text-secondary);
+  }
+
+  #progress-text {
+    font-weight: 500;
+    color: var(--text-primary);
+    max-width: 70%;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  #progress-fraction {
+    font-family: var(--font-mono);
+  }
+
+  /* Logs card */
+  .logs-card {
+    background: rgba(0, 0, 0, 0.3);
+    border: 1px solid rgba(255, 255, 255, 0.05);
+    border-radius: 8px;
+    overflow: hidden;
+  }
+
+  .logs-header {
+    background: rgba(255, 255, 255, 0.02);
+    padding: 10px 16px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+    font-size: 0.75rem;
+    font-weight: 500;
+    color: var(--text-secondary);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+
+  .live-dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background-color: var(--color-success);
+  }
+
+  .logs-body {
+    height: 150px;
+    padding: 12px;
+    font-family: var(--font-mono);
+    font-size: 0.8rem;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+
+  .log-line {
+    word-break: break-all;
+    line-height: 1.4;
+  }
+
+  .log-line.danger {
+    color: var(--color-danger);
+  }
+
+  .log-line.info {
+    color: var(--text-secondary);
+  }
+
+  /* Error Card */
+  .error-card {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    background: rgba(239, 68, 68, 0.08);
+    border: 1px solid rgba(239, 68, 68, 0.2);
+    padding: 16px;
+    border-radius: 8px;
+    margin-top: 16px;
+    animation: fadeIn 0.3s ease;
+  }
+
+  .error-icon-ti {
+    color: var(--color-danger);
+    font-size: 1.5rem;
+    flex-shrink: 0;
+  }
+
+  .error-msg {
+    flex-grow: 1;
+  }
+
+  .error-msg h4 {
+    font-size: 0.95rem;
+    font-weight: 500;
+    color: var(--text-primary);
+  }
+
+  .error-msg p {
+    font-size: 0.85rem;
+    color: var(--text-secondary);
+    margin-top: 2px;
+  }
+</style>
